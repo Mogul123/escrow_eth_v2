@@ -4,6 +4,7 @@ const { expect } = require("chai");
 const {
   loadFixture,
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+const { bigint } = require("hardhat/internal/core/params/argumentTypes");
 
 const bobExpectedAmount = ethers.parseEther("1.0"); //bob will get 1 ether and pay 2
 const aliceExpectedAmount = ethers.parseEther("2.0");
@@ -232,6 +233,57 @@ describe("Escrow", function () {
       await expect(Escrow.connect(bob).complete(0)).to.be.revertedWith(
         "Only arbitrator can complete"
       );
+
+      //Arbitror completes agreement
+      await Escrow.connect(arbitrator).complete(0);
+    });
+  });
+
+  describe("Full Escrow flow", function () {
+    it("Should allow Bob and Alice to interact with the Escrow contract and terminate successfully", async function () {
+      const { Escrow, bob, alice, arbitrator } = await loadFixture(
+        deployEscrowFixture
+      );
+
+      let totalGasUsed = BigInt(0);
+
+      //1: Create new agreement
+      let tx = await Escrow.connect(arbitrator).newAgreement(
+        bob.address,
+        alice.address,
+        bobExpectedAmount,
+        aliceExpectedAmount
+      );
+
+      let receipt = await tx.wait();
+      console.log(`Gas used for newAgreement: ${receipt.gasUsed.toString()}`);
+      console.log("Type of gas used:", typeof receipt.gasUsed);
+      totalGasUsed += receipt.gasUsed;
+
+      //2: Bob deposits funds
+      tx = await Escrow.connect(bob).deposit(0, { value: aliceExpectedAmount });
+      receipt = await tx.wait();
+      console.log(`Gas used for Bob deposit: ${receipt.gasUsed.toString()}`);
+      totalGasUsed += receipt.gasUsed;
+
+      //3: Alice deposits funds
+      tx = await Escrow.connect(alice).deposit(0, { value: bobExpectedAmount });
+      receipt = await tx.wait();
+      console.log(`Gas used for Alice deposit: ${receipt.gasUsed.toString()}`);
+      totalGasUsed += receipt.gasUsed;
+
+      //4: Complete the agreement
+      tx = await Escrow.connect(arbitrator).complete(0);
+      receipt = await tx.wait();
+      console.log(`Gas used for complete: ${receipt.gasUsed.toString()}`);
+      totalGasUsed += receipt.gasUsed;
+
+      // Verify the final state
+      const agreement = await Escrow.agreements(0);
+      console.log("Agreement: ", agreement);
+      expect(agreement.completed).to.equal(true);
+
+      console.log("Total gas used: ", totalGasUsed.toString());
     });
   });
 });
