@@ -6,7 +6,6 @@ module.exports = {
   gasReporter: {
     currency: "USD",
     L1: "ethereum",
-    coinmarketcap: "3ce02817-a7ff-4896-83f4-66ae7021ab22",
-    enabled: false,
+    enabled: true,
   }
 };
